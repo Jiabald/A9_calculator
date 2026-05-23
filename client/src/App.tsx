@@ -1,5 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
-import CalculatorPage from "./pages/CalculatorPage";
+import CalculatorPage from "./pages/CalculatorPage/CalculatorPage";
 import KlinePage from "./pages/KlinePage";
 import RecordsPage from "./pages/RecordsPage/RecordsPage";
 

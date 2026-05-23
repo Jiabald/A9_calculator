@@ -1,18 +1,20 @@
 import { Button, Input, InputNumber, Select, Slider, Textarea } from "tdesign-react";
 import type { InputNumberValue, SelectValue } from "tdesign-react";
 import { FormEvent, useMemo, useState } from "react";
-import { createPosition } from "../api";
+import { createPosition } from "../../api";
 import {
   calculatePosition,
   createPayload,
   currencyFormatter,
   formatNumber,
+  formatRatioPercent,
   initialForm,
   toNumber,
   type CalculationResult,
   type CalculatorForm
-} from "../calculator";
-import type { TradeSide } from "../types";
+} from "./calculator";
+import { percentOf } from "../../utils/precision";
+import type { TradeSide } from "../../types";
 
 const RISK_TAGS = ["1", "5", "10", "15", "20"];
 const LEVERAGE_TAGS = ["1", "5", "10", "20", "50", "100"];
@@ -45,7 +47,7 @@ function CalculatorPage() {
     const balance = toNumber(form.accountBalance);
     const pct = toNumber(form.riskPercent);
     if (balance <= 0 || pct <= 0) return 0;
-    return balance * (pct / 100);
+    return percentOf(balance, pct);
   }, [form.accountBalance, form.riskPercent]);
 
   function updateField<K extends keyof CalculatorForm>(key: K, value: CalculatorForm[K]) {
@@ -291,10 +293,10 @@ function CalculatorPage() {
           {result?.isValid && (
             <div className="metric-list">
               <Metric label="风险金额" value={`${currencyFormatter.format(result.riskAmount)} USDT`} />
-              <Metric label="止损亏损比例" value={`${(result.priceLossRatio * 100).toFixed(4)}%`} />
-              <Metric label="手续费合计" value={`${(result.feeRatio * 100).toFixed(4)}%`} />
+              <Metric label="止损亏损比例" value={formatRatioPercent(result.priceLossRatio)} />
+              <Metric label="手续费合计" value={formatRatioPercent(result.feeRatio)} />
               <Metric label="开仓手续费" value={`${currencyFormatter.format(result.openFeeAmount)} USDT`} />
-              <Metric label="总亏损比例" value={`${(result.totalLossRatio * 100).toFixed(4)}%`} highlight />
+              <Metric label="总亏损比例" value={formatRatioPercent(result.totalLossRatio)} highlight />
               <Metric label="仓位价值" value={`${currencyFormatter.format(result.positionValue)} USDT`} highlight />
               <Metric label="仓位数量" value={formatNumber(result.positionSize)} highlight />
               <Metric label="所需保证金" value={`${currencyFormatter.format(result.margin)} USDT`} />

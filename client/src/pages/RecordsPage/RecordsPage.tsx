@@ -2,7 +2,15 @@ import { FormEvent, useEffect, useState } from "react";
 import { Button, Input, InputNumber, Select, Textarea } from "tdesign-react";
 import type { InputNumberValue, SelectValue } from "tdesign-react";
 import { createPosition, deletePosition, fetchPositions, updatePosition } from "../../api";
-import { currencyFormatter, formatNumber, today, toNumber } from "../../calculator";
+import {
+  calcSidePriceDiff,
+  createOpenRecordPayload,
+  currencyFormatter,
+  formatLossRatioPercent,
+  formatNumber,
+  getTradeResult,
+  toNumber
+} from "../CalculatorPage/calculator";
 import type { PositionPayload, PositionRecord, TradeSide } from "../../types";
 import styles from "./RecordsPage.module.css";
 
@@ -32,11 +40,6 @@ function asNum(str: string): number | "" {
 type PositionStatus = {
   label: string;
   className: string;
-};
-
-type TradeResult = {
-  feeLoss: number;
-  profitLoss: number;
 };
 
 type CloseModalState = {
@@ -85,7 +88,7 @@ function RecordsPage() {
   async function handleCreateOpenRecord(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const payload = createOpenRecordPayload(form);
+    const payload = buildOpenRecordPayload(form);
     if (!payload) {
       setStatus("请填写品种、入场价、止损价、杠杆、仓位价值和入场逻辑");
       return;
@@ -445,7 +448,7 @@ function RecordsPage() {
                       )}
                     </td>
                     <td>{position.leverage}x</td>
-                    <td>{position.lossRatio.toFixed(4)}%</td>
+                    <td>{formatLossRatioPercent(position.lossRatio)}</td>
                     <td>{currencyFormatter.format(position.positionValue)}</td>
                     <td>{formatNumber(position.positionSize)}</td>
                     <td>{currencyFormatter.format(position.riskAmount)}</td>
@@ -477,7 +480,7 @@ function RecordsPage() {
   );
 }
 
-function createOpenRecordPayload(form: OpenRecordForm): PositionPayload | null {
+function buildOpenRecordPayload(form: OpenRecordForm): PositionPayload | null {
   const entryPrice = toNumber(form.entryPrice);
   const stopLoss = toNumber(form.stopLoss);
   const takeProfit = form.takeProfit ? toNumber(form.takeProfit) : undefined;
@@ -488,29 +491,18 @@ function createOpenRecordPayload(form: OpenRecordForm): PositionPayload | null {
     return null;
   }
 
-  const openFeeRate = toNumber(form.openFeeRate);
-  const closeFeeRate = toNumber(form.closeFeeRate);
-  const priceLossRatio = Math.abs(entryPrice - stopLoss) / entryPrice;
-  const feeRatio = (openFeeRate + closeFeeRate) / 100;
-  const lossRatio = (priceLossRatio + feeRatio) * 100;
-
-  return {
+  return createOpenRecordPayload({
     symbol: form.symbol,
     side: form.side,
     entryPrice,
     stopLoss,
     takeProfit,
     leverage,
-    positionSize: positionValue / entryPrice,
     positionValue,
-    riskAmount: positionValue * (lossRatio / 100),
-    lossRatio,
-    openFeeRate,
-    closeFeeRate,
-    closePrice: undefined,
-    notes: form.notes,
-    tradeDate: today
-  };
+    openFeeRate: toNumber(form.openFeeRate),
+    closeFeeRate: toNumber(form.closeFeeRate),
+    notes: form.notes
+  });
 }
 
 function toPayload(record: PositionRecord, closePrice: number | undefined): PositionPayload {
@@ -538,34 +530,11 @@ function getPositionStatus(record: PositionRecord): PositionStatus {
     return { label: "持仓中", className: "holding" };
   }
 
-  const profit =
-    record.side === "long"
-      ? record.closePrice - record.entryPrice
-      : record.entryPrice - record.closePrice;
+  const profit = calcSidePriceDiff(record.side, record.entryPrice, record.closePrice);
 
   if (profit > 0) return { label: "已止盈", className: "take-profit" };
   if (profit < 0) return { label: "已止损", className: "stop-loss" };
   return { label: "已平仓", className: "closed" };
-}
-
-function getTradeResult(record: PositionRecord): TradeResult | null {
-  if (record.closePrice === undefined) {
-    return null;
-  }
-
-  const openFee = record.positionValue * (record.openFeeRate / 100);
-  const closeValue = record.closePrice * record.positionSize;
-  const closeFee = closeValue * (record.closeFeeRate / 100);
-  const priceProfitLoss =
-    record.side === "long"
-      ? (record.closePrice - record.entryPrice) * record.positionSize
-      : (record.entryPrice - record.closePrice) * record.positionSize;
-  const feeLoss = openFee + closeFee;
-
-  return {
-    feeLoss,
-    profitLoss: priceProfitLoss - feeLoss
-  };
 }
 
 function FieldLabel({ text, optional = false }: { text: string; optional?: boolean }) {

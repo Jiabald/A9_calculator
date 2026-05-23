@@ -13,6 +13,21 @@
 
 ## 启动
 
+### 一键启动（推荐）
+
+**macOS**：在 Finder 中双击项目根目录下的 `start-dev.command`，会自动安装缺失依赖并同时启动前后端。
+
+或在终端执行：
+
+```bash
+chmod +x scripts/start-dev.sh
+./scripts/start-dev.sh
+```
+
+按 `Ctrl+C` 可同时停止前后端。
+
+### 分别启动
+
 前端和后端是两个独立项目，各自维护自己的 `node_modules`。
 
 后端：

@@ -3,6 +3,7 @@ import { DateRangePicker, MessagePlugin, Select } from "tdesign-react";
 import type { DateRangeValue, SelectValue } from "tdesign-react";
 import { CandlestickSeries, ColorType, createChart } from "lightweight-charts";
 import type { IChartApi, ISeriesApi, MouseEventHandler, Time, UTCTimestamp } from "lightweight-charts";
+import { add, ratioToPercent, round, sub } from "../utils/precision";
 
 const MAX_DAYS = 7;
 
@@ -160,11 +161,11 @@ function isCandlestickData(data: unknown): data is { open: number; high: number;
 function calcDayStats(candles: CandleData[]): DayStats {
   const open = candles[0].open;
   const close = candles[candles.length - 1].close;
-  const high = Math.max(...candles.map((c) => c.high));
-  const low = Math.min(...candles.map((c) => c.low));
-  const volume = candles.reduce((s, c) => s + c.volume, 0);
-  const change = close - open;
-  const changePercent = (change / open) * 100;
+  const high = candles.reduce((max, c) => (c.high > max ? c.high : max), candles[0].high);
+  const low = candles.reduce((min, c) => (c.low < min ? c.low : min), candles[0].low);
+  const volume = candles.reduce((s, c) => add(s, c.volume), 0);
+  const change = sub(close, open);
+  const changePercent = ratioToPercent(change, open);
   return { open, high, low, close, volume, change, changePercent };
 }
 
@@ -443,7 +444,7 @@ export default function KlinePage() {
               }}
             >
               {stats.changePercent >= 0 ? "+" : ""}
-              {stats.changePercent.toFixed(2)}%
+              {round(stats.changePercent, 2).toFixed(2)}%
             </span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 10 }}>
@@ -453,7 +454,7 @@ export default function KlinePage() {
                 { label: "最高", value: formatPrice(stats.high), color: "#22c55e" },
                 { label: "最低", value: formatPrice(stats.low), color: "#ef4444" },
                 { label: "收盘", value: formatPrice(stats.close), color: stats.change >= 0 ? "#22c55e" : "#ef4444" },
-                { label: "振幅", value: `${(((stats.high - stats.low) / stats.open) * 100).toFixed(2)}%`, color: undefined },
+                { label: "振幅", value: `${round(ratioToPercent(sub(stats.high, stats.low), stats.open), 2).toFixed(2)}%`, color: undefined },
                 { label: "成交量", value: formatVolume(stats.volume), color: undefined },
                 { label: "K线数量", value: String(candles.length), color: undefined },
               ] as const
