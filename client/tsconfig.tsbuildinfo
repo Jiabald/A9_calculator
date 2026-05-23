@@ -1,15 +1,1 @@
-{
-    "root": [
-        "./src/app.tsx",
-        "./src/api.ts",
-        "./src/calculator.ts",
-        "./src/main.tsx",
-        "./src/precision.ts",
-        "./src/types.ts",
-        "./src/vite-env.d.ts",
-        "./src/pages/calculatorpage.tsx",
-        "./src/pages/klinepage.tsx",
-        "./src/pages/recordspage/recordspage.tsx"
-    ],
-    "version": "5.9.3"
-}
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/pages/klinepage.tsx","./src/pages/calculatorpage/calculatorpage.tsx","./src/pages/calculatorpage/calculator.ts","./src/pages/recordspage/recordspage.tsx","./src/utils/precision.ts"],"version":"5.9.3"}

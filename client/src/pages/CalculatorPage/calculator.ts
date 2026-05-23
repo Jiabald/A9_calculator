@@ -1,5 +1,5 @@
 import type { PositionPayload, PositionRecord, TradeSide } from "../../types";
-import { absDiff, add, div, mul, percentOf, round, sub } from "../../utils/precision";
+import { absDiff, add, div, mul, percentOf, ratioToPercent, round, sub } from "../../utils/precision";
 
 export type CalculatorForm = {
   accountBalance: string;
@@ -24,6 +24,10 @@ export type CalculationResult = {
   positionSize: number;
   openFeeAmount: number;
   margin: number;
+  /** 下单成本 = 所需保证金 + 开仓手续费 */
+  orderCost: number;
+  /** 占用总金额（开仓时账户占用 USDT，与下单成本一致） */
+  totalOccupiedAmount: number;
   message?: string;
 };
 
@@ -116,6 +120,17 @@ export function calcRiskAmountFromLossRatio(positionValue: number, lossRatioPerc
   return percentOf(positionValue, lossRatioPercent);
 }
 
+/** 占用金额占账户资金比例（百分比数值，如 12.5 表示 12.5%） */
+export function calcOccupiedPercent(occupiedAmount: number, accountBalance: number): number {
+  if (accountBalance <= 0) return 0;
+  return round(ratioToPercent(occupiedAmount, accountBalance), 1);
+}
+
+/** 环形图进度（上限 100） */
+export function calcOccupiedRingPercent(occupiedAmount: number, accountBalance: number): number {
+  return Math.min(100, calcOccupiedPercent(occupiedAmount, accountBalance));
+}
+
 export function calcSidePriceDiff(
   side: TradeSide,
   entryPrice: number,
@@ -183,6 +198,9 @@ export function calculatePosition(form: CalculatorForm): CalculationResult {
 
   const positionValue = div(riskAmount, totalLossRatio);
   const positionSize = calcPositionSize(positionValue, entryPrice);
+  const openFeeAmount = mul(positionValue, openFeeRate);
+  const margin = div(positionValue, leverage);
+  const orderCost = add(margin, openFeeAmount);
 
   return {
     isValid: true,
@@ -192,8 +210,10 @@ export function calculatePosition(form: CalculatorForm): CalculationResult {
     totalLossRatio,
     positionValue,
     positionSize,
-    openFeeAmount: mul(positionValue, openFeeRate),
-    margin: div(positionValue, leverage)
+    openFeeAmount,
+    margin,
+    orderCost,
+    totalOccupiedAmount: orderCost
   };
 }
 
@@ -268,6 +288,8 @@ function emptyResult(riskAmount: number, message: string): CalculationResult {
     positionSize: 0,
     openFeeAmount: 0,
     margin: 0,
+    orderCost: 0,
+    totalOccupiedAmount: 0,
     message
   };
 }

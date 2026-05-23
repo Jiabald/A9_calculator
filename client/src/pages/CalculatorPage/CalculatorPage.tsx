@@ -1,9 +1,11 @@
-import { Button, Input, InputNumber, Select, Slider, Textarea } from "tdesign-react";
+import { Button, Input, InputNumber, Progress, Select, Slider, Textarea } from "tdesign-react";
 import type { InputNumberValue, SelectValue } from "tdesign-react";
 import { FormEvent, useMemo, useState } from "react";
 import { createPosition } from "../../api";
 import {
   calculatePosition,
+  calcOccupiedPercent,
+  calcOccupiedRingPercent,
   createPayload,
   currencyFormatter,
   formatNumber,
@@ -49,6 +51,17 @@ function CalculatorPage() {
     if (balance <= 0 || pct <= 0) return 0;
     return percentOf(balance, pct);
   }, [form.accountBalance, form.riskPercent]);
+
+  const occupiedChart = useMemo(() => {
+    if (!result?.isValid) return null;
+    const accountBalance = toNumber(form.accountBalance);
+    const amount = result.totalOccupiedAmount;
+    return {
+      amount,
+      percent: calcOccupiedPercent(amount, accountBalance),
+      ringPercent: calcOccupiedRingPercent(amount, accountBalance)
+    };
+  }, [result, form.accountBalance]);
 
   function updateField<K extends keyof CalculatorForm>(key: K, value: CalculatorForm[K]) {
     setForm((cur) => ({ ...cur, [key]: value }));
@@ -303,19 +316,53 @@ function CalculatorPage() {
 
               <div className="order-suggestion">
                 <p className="order-suggestion-title">交易所下单建议</p>
-                <div className="order-suggestion-row">
-                  <div className="order-suggestion-item">
+                <div className="order-suggestion-grid">
+                  <div className="order-suggestion-cell">
                     <span className="order-suggestion-label">下单金额</span>
-                    <strong className="order-suggestion-value">{currencyFormatter.format(result.positionValue)}</strong>
+                    <div className="order-suggestion-body">
+                      <strong className="order-suggestion-value">{currencyFormatter.format(result.positionValue)}</strong>
+                    </div>
                     <span className="order-suggestion-unit">USDT</span>
                   </div>
-                  <div className="order-suggestion-divider" />
-                  <div className="order-suggestion-item">
+                  <div className="order-suggestion-cell">
                     <span className="order-suggestion-label">下单数量</span>
-                    <strong className="order-suggestion-value">{formatNumber(result.positionSize)}</strong>
+                    <div className="order-suggestion-body">
+                      <strong className="order-suggestion-value">{formatNumber(result.positionSize)}</strong>
+                    </div>
                     <span className="order-suggestion-unit">{form.symbol.replace("USDT", "") || "币"}</span>
                   </div>
+                  <div className="order-suggestion-cell">
+                    <span className="order-suggestion-label">下单成本</span>
+                    <div className="order-suggestion-body">
+                      <strong className="order-suggestion-value">{currencyFormatter.format(result.orderCost)}</strong>
+                    </div>
+                    <span className="order-suggestion-unit">USDT</span>
+                  </div>
+                  {occupiedChart && (
+                    <div className="order-suggestion-cell">
+                      <span className="order-suggestion-label">占用总金额</span>
+                      <div className="order-suggestion-body order-suggestion-body--chart">
+                        <Progress
+                          theme="circle"
+                          percentage={occupiedChart.ringPercent}
+                          size={64}
+                          strokeWidth={5}
+                          color="#2457e6"
+                          trackColor="#d4dff5"
+                          label={
+                            <strong className="order-suggestion-chart-value">
+                              {currencyFormatter.format(occupiedChart.amount)}
+                            </strong>
+                          }
+                        />
+                      </div>
+                      <span className="order-suggestion-unit">占账户 {occupiedChart.percent}%</span>
+                    </div>
+                  )}
                 </div>
+                <p className="order-suggestion-hint">
+                  下单成本 = 所需保证金 + 开仓手续费；占用总金额为开仓占用，环形图为占账户资金比例
+                </p>
               </div>
             </div>
           )}
