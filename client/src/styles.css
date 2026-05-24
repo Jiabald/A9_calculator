@@ -193,6 +193,23 @@ h2 {
   gap: 14px;
 }
 
+.entry-price-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.entry-price-row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.entry-price-row .t-button {
+  flex-shrink: 0;
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
 .form-grid-3 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

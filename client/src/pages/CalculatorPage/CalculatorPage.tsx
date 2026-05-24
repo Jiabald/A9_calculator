@@ -1,7 +1,7 @@
 import { Button, Input, InputNumber, Progress, Select, Slider, Textarea } from "tdesign-react";
 import type { InputNumberValue, SelectValue } from "tdesign-react";
-import { FormEvent, useMemo, useState } from "react";
-import { createPosition } from "../../api";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { createPosition, fetchCurrentPrincipal } from "../../api";
 import {
   calculatePosition,
   calcOccupiedPercent,
@@ -15,6 +15,7 @@ import {
   type CalculationResult,
   type CalculatorForm
 } from "./calculator";
+import { fetchOKXLastPrice } from "../../utils/okx";
 import { percentOf } from "../../utils/precision";
 import type { TradeSide } from "../../types";
 
@@ -35,6 +36,23 @@ function CalculatorPage() {
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState<"ok" | "err">("ok");
+  const [priceLoading, setPriceLoading] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { principal } = await fetchCurrentPrincipal();
+        if (principal !== null && Number.isFinite(principal)) {
+          setForm((current) => ({
+            ...current,
+            accountBalance: String(principal)
+          }));
+        }
+      } catch {
+        // 请求失败时保留默认账户资金
+      }
+    })();
+  }, []);
 
   const stopLossError = useMemo(() => {
     const entry = toNumber(form.entryPrice);
@@ -67,6 +85,27 @@ function CalculatorPage() {
     setForm((cur) => ({ ...cur, [key]: value }));
     setResult(null);
     setStatus("");
+  }
+
+  async function handleFetchEntryPrice() {
+    if (!form.symbol.trim()) {
+      setStatus("请先输入品种");
+      setStatusType("err");
+      return;
+    }
+
+    setPriceLoading(true);
+    try {
+      const price = await fetchOKXLastPrice(form.symbol);
+      updateField("entryPrice", String(price));
+      setStatus(`已获取 ${form.symbol.trim().toUpperCase()} 最新价`);
+      setStatusType("ok");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "获取价格失败");
+      setStatusType("err");
+    } finally {
+      setPriceLoading(false);
+    }
   }
 
   function handleCalculate() {
@@ -172,18 +211,29 @@ function CalculatorPage() {
           <div className="form-grid-2">
             <label className="td-label">
               入场价格
-              <InputNumber
-                value={asNum(form.entryPrice)}
-                min={0}
-                step={1}
-                decimalPlaces={6}
-                placeholder="请输入入场价"
-                style={{ width: "100%" }}
-                theme="normal"
-                onChange={(val: InputNumberValue) =>
-                  updateField("entryPrice", val === "" ? "" : String(val))
-                }
-              />
+              <div className="entry-price-row">
+                <InputNumber
+                  value={asNum(form.entryPrice)}
+                  min={0}
+                  step={1}
+                  decimalPlaces={6}
+                  placeholder="请输入入场价"
+                  style={{ width: "100%" }}
+                  theme="normal"
+                  onChange={(val: InputNumberValue) =>
+                    updateField("entryPrice", val === "" ? "" : String(val))
+                  }
+                />
+                <Button
+                  type="button"
+                  theme="default"
+                  variant="outline"
+                  loading={priceLoading}
+                  onClick={() => void handleFetchEntryPrice()}
+                >
+                  获取当前价格
+                </Button>
+              </div>
             </label>
             <label className="td-label">
               止损价格

@@ -18,6 +18,11 @@ export async function fetchPositions() {
   return parseResponse<PositionRecord[]>(response);
 }
 
+export async function fetchCurrentPrincipal() {
+  const response = await fetch("/api/principal");
+  return parseResponse<{ principal: number | null }>(response);
+}
+
 export async function createPosition(payload: PositionPayload) {
   const response = await fetch("/api/positions", {
     method: "POST",
@@ -30,6 +35,20 @@ export async function createPosition(payload: PositionPayload) {
 export async function updatePosition(id: string, payload: PositionPayload) {
   const response = await fetch(`/api/positions/${id}`, {
     method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  return parseResponse<PositionRecord>(response);
+}
+
+export type PatchPositionPayload = Partial<Omit<PositionPayload, "takeProfit" | "closePrice">> & {
+  takeProfit?: number | null;
+  closePrice?: number | null;
+};
+
+export async function patchPosition(id: string, payload: PatchPositionPayload) {
+  const response = await fetch(`/api/positions/${id}`, {
+    method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });

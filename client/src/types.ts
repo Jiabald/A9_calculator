@@ -1,5 +1,7 @@
 export type TradeSide = "long" | "short";
 
+export const DEFAULT_PRINCIPAL = 209.75;
+
 export interface PositionRecord {
   id: string;
   symbol: string;
@@ -14,6 +16,8 @@ export interface PositionRecord {
   lossRatio: number;
   openFeeRate: number;
   closeFeeRate: number;
+  principal: number;
+  fundingFee: number;
   closePrice?: number;
   notes?: string;
   tradeDate: string;

@@ -1,3 +1,4 @@
+import { DEFAULT_PRINCIPAL } from "../../types";
 import type { PositionPayload, PositionRecord, TradeSide } from "../../types";
 import { absDiff, add, div, mul, percentOf, ratioToPercent, round, sub } from "../../utils/precision";
 
@@ -38,8 +39,10 @@ export type TradeResult = {
 
 export const today = new Date().toISOString().slice(0, 10);
 
+export const DEFAULT_ACCOUNT_BALANCE = 200;
+
 export const initialForm: CalculatorForm = {
-  accountBalance: "200",
+  accountBalance: String(DEFAULT_ACCOUNT_BALANCE),
   riskPercent: "5",
   symbol: "BTCUSDT",
   side: "long",
@@ -150,10 +153,11 @@ export function getTradeResult(record: PositionRecord): TradeResult | null {
   const priceDiff = calcSidePriceDiff(record.side, record.entryPrice, record.closePrice);
   const priceProfitLoss = mul(priceDiff, record.positionSize);
   const feeLoss = add(openFee, closeFee);
+  const fundingFee = record.fundingFee ?? 0;
 
   return {
     feeLoss,
-    profitLoss: sub(priceProfitLoss, feeLoss)
+    profitLoss: add(sub(priceProfitLoss, feeLoss), fundingFee)
   };
 }
 
@@ -228,6 +232,8 @@ export function createOpenRecordPayload(
     positionValue: number;
     openFeeRate: number;
     closeFeeRate: number;
+    principal?: number;
+    fundingFee?: number;
     notes: string;
   }
 ): PositionPayload {
@@ -251,6 +257,8 @@ export function createOpenRecordPayload(
     lossRatio,
     openFeeRate: input.openFeeRate,
     closeFeeRate: input.closeFeeRate,
+    principal: input.principal ?? DEFAULT_PRINCIPAL,
+    fundingFee: input.fundingFee ?? 0,
     closePrice: undefined,
     notes: input.notes,
     tradeDate: today
@@ -271,6 +279,8 @@ export function createPayload(form: CalculatorForm, result: CalculationResult): 
     lossRatio: mul(result.totalLossRatio, 100),
     openFeeRate: toNumber(form.openFeeRate),
     closeFeeRate: toNumber(form.closeFeeRate),
+    principal: toNumber(form.accountBalance) || DEFAULT_PRINCIPAL,
+    fundingFee: 0,
     closePrice: undefined,
     notes: form.notes,
     tradeDate: today

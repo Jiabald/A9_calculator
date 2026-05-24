@@ -9,7 +9,8 @@
 - 输出风险金额、止损亏损比例、总亏损比例、仓位价值、仓位数量和所需保证金。
 - 支持保存、查看、删除仓位记录。
 - 仓位记录包含品种、方向、入场价、止损、止盈、杠杆、仓位价值、仓位数量、风险金额、备注和日期。
-- 后端使用本地 `server/data/positions.json` 持久化数据。
+- 后端使用 MySQL 持久化仓位记录（默认 `root` / `root`，端口 `3306`，库名 `a9_calculator`）。
+- 首次启动且数据库为空时，会自动将 `server/data/positions.json` 中的历史数据迁移到 MySQL。
 
 ## 启动
 
@@ -30,13 +31,16 @@ chmod +x scripts/start-dev.sh
 
 前端和后端是两个独立项目，各自维护自己的 `node_modules`。
 
-后端：
+后端（需本地已启动 MySQL）：
 
 ```bash
 cd server
+cp .env.example .env   # 首次运行：复制并按需修改配置
 npm install
 npm run dev
 ```
+
+配置项在 `server/.env` 中维护（`PORT`、`DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`、`DB_NAME`）。
 
 前端：
 
