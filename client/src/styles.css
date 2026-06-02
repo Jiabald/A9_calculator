@@ -169,6 +169,17 @@ h2 {
   align-items: start;
 }
 
+.calc-layout-vertical {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.result-panel.non-sticky {
+  position: static;
+}
+
 .panel {
   padding: 22px;
 }

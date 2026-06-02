@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { healthController } from "../controller/healthController.js";
+import { aiAnalyzeController } from "../controller/aiAnalyzeController.js";
 import { positionController } from "../controller/positionController.js";
 import { principalController } from "../controller/principalController.js";
 
@@ -7,6 +8,8 @@ export const apiRouter = Router();
 
 apiRouter.get("/health", healthController.check);
 apiRouter.get("/principal", principalController.getCurrent);
+apiRouter.post("/ai/analyze", aiAnalyzeController.analyze);
+apiRouter.post("/ai/analyze/stream", aiAnalyzeController.analyzeStream);
 apiRouter.get("/positions", positionController.list);
 apiRouter.post("/positions", positionController.create);
 apiRouter.put("/positions/:id", positionController.replace);
