@@ -108,6 +108,21 @@ export const positionDao = {
     return rows.map(rowToRecord);
   },
 
+  async count(): Promise<number> {
+    const pool = getPool();
+    const [rows] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) AS total FROM positions");
+    return Number(rows[0]?.total ?? 0);
+  },
+
+  async findPaginated(offset: number, limit: number): Promise<PositionRecord[]> {
+    const pool = getPool();
+    const [rows] = await pool.query<PositionRow[]>(
+      `SELECT ${SELECT_COLUMNS} FROM positions ORDER BY trade_date DESC, created_at DESC LIMIT :limit OFFSET :offset`,
+      { limit, offset }
+    );
+    return rows.map(rowToRecord);
+  },
+
   async findById(id: string): Promise<PositionRecord | null> {
     const pool = getPool();
     const [rows] = await pool.query<PositionRow[]>(

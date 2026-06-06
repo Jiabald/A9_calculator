@@ -7,10 +7,10 @@ function getIdParam(req: Request): string {
 }
 
 export const positionController = {
-  async list(_req: Request, res: Response, next: NextFunction) {
+  async list(req: Request, res: Response, next: NextFunction) {
     try {
-      const positions = await positionService.listPositions();
-      res.json(positions);
+      const result = await positionService.listPositions(req.query.page, req.query.pageSize);
+      res.json(result);
     } catch (error) {
       next(error);
     }

@@ -1,7 +1,7 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Button, Input, InputNumber, Popup, Select, Textarea } from "tdesign-react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Button, Input, InputNumber, Pagination, Popup, Select, Textarea } from "tdesign-react";
 import type { InputNumberValue, SelectValue } from "tdesign-react";
-import { createPosition, deletePosition, fetchPositions, patchPosition, updatePosition } from "../../api";
+import { createPosition, deletePosition, fetchCurrentPrincipal, fetchPositions, patchPosition, updatePosition } from "../../api";
 import {
   calcSidePriceDiff,
   createOpenRecordPayload,
@@ -12,8 +12,7 @@ import {
   toNumber
 } from "../CalculatorPage/calculator";
 import { DEFAULT_PRINCIPAL } from "../../types";
-import type { PositionPayload, PositionRecord, TradeSide } from "../../types";
-import { add } from "../../utils/precision";
+import type { PositionPayload, PositionRecord, PrincipalSnapshot, TradeSide } from "../../types";
 import styles from "./RecordsPage.module.css";
 
 type OpenRecordForm = {
@@ -50,6 +49,8 @@ type CloseModalState = {
   closePrice: string;
 };
 
+const DEFAULT_PAGE_SIZE = 10;
+
 const initialOpenRecordForm: OpenRecordForm = {
   symbol: "BTCUSDT",
   side: "long",
@@ -66,6 +67,10 @@ const initialOpenRecordForm: OpenRecordForm = {
 
 function RecordsPage() {
   const [positions, setPositions] = useState<PositionRecord[]>([]);
+  const [principalChain, setPrincipalChain] = useState<Record<string, PrincipalSnapshot>>({});
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [total, setTotal] = useState(0);
   const [form, setForm] = useState<OpenRecordForm>(initialOpenRecordForm);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -73,6 +78,7 @@ function RecordsPage() {
   const [status, setStatus] = useState("正在加载仓位记录...");
 
   const isEditMode = editingId !== null;
+  const principalChainMap = useMemo(() => new Map(Object.entries(principalChain)), [principalChain]);
 
   const stopLossError = useMemo(() => {
     const entry = toNumber(form.entryPrice);
@@ -83,18 +89,27 @@ function RecordsPage() {
     return "";
   }, [form.side, form.entryPrice, form.stopLoss]);
 
-  useEffect(() => {
-    void loadPositions();
-  }, []);
-
-  async function loadPositions() {
+  const loadPositions = useCallback(async (targetPage = page, targetPageSize = pageSize) => {
     try {
-      const data = await fetchPositions();
-      setPositions(data);
-      setStatus(data.length ? "" : "暂无仓位记录");
+      const data = await fetchPositions({ page: targetPage, pageSize: targetPageSize });
+      setPositions(data.items);
+      setPrincipalChain(data.principalChain);
+      setTotal(data.total);
+      setPage(data.page);
+      setPageSize(data.pageSize);
+      setStatus(data.total ? "" : "暂无仓位记录");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "加载失败");
     }
+  }, [page, pageSize]);
+
+  useEffect(() => {
+    void loadPositions(page, pageSize);
+  }, [page, pageSize, loadPositions]);
+
+  function handlePageChange(nextPage: number, nextPageSize: number) {
+    setPage(nextPage);
+    setPageSize(nextPageSize);
   }
 
   function updateField<K extends keyof OpenRecordForm>(key: K, value: OpenRecordForm[K]) {
@@ -127,7 +142,18 @@ function RecordsPage() {
     }
 
     const existing = editingId ? positions.find((position) => position.id === editingId) : undefined;
-    const payload = buildOpenRecordPayload(form, existing?.principal);
+    let openingPrincipal = existing?.principal;
+    if (!editingId) {
+      try {
+        const { principal } = await fetchCurrentPrincipal();
+        if (principal !== null && Number.isFinite(principal)) {
+          openingPrincipal = principal;
+        }
+      } catch {
+        // 请求失败时回退到默认本金
+      }
+    }
+    const payload = buildOpenRecordPayload(form, openingPrincipal);
     if (!payload) {
       setStatus("请填写品种、入场价、止损价、杠杆、仓位价值和入场逻辑");
       return;
@@ -148,7 +174,7 @@ function RecordsPage() {
       }
       setForm({ ...initialOpenRecordForm });
       closeFormModal();
-      await loadPositions();
+      await loadPositions(editingId ? page : 1, pageSize);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : editingId ? "更新失败" : "新增失败");
     }
@@ -171,7 +197,7 @@ function RecordsPage() {
       await updatePosition(record.id, payload);
       setStatus(parsed !== undefined ? "平仓价格已保存" : "已清空平仓价格");
       setCloseModal(null);
-      await loadPositions();
+      await loadPositions(page, pageSize);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "保存失败");
     }
@@ -181,7 +207,8 @@ function RecordsPage() {
     try {
       await deletePosition(id);
       setStatus("仓位记录已删除");
-      await loadPositions();
+      const nextPage = positions.length === 1 && page > 1 ? page - 1 : page;
+      await loadPositions(nextPage, pageSize);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "删除失败");
     }
@@ -488,6 +515,7 @@ function RecordsPage() {
               {positions.map((position) => {
                 const positionStatus = getPositionStatus(position);
                 const tradeResult = getTradeResult(position);
+                const principalSnapshot = principalChainMap.get(position.id);
 
                 return (
                   <tr key={position.id}>
@@ -521,16 +549,16 @@ function RecordsPage() {
                     <td>{currencyFormatter.format(position.positionValue)}</td>
                     <td>{formatNumber(position.positionSize)}</td>
                     <td>
-                      {tradeResult ? (
+                      {tradeResult && principalSnapshot?.endPrincipal !== null && principalSnapshot?.endPrincipal !== undefined ? (
                         <div className={styles.principalCell}>
-                          <span>{currencyFormatter.format(add(position.principal, tradeResult.profitLoss))}</span>
+                          <span>{currencyFormatter.format(principalSnapshot.endPrincipal)}</span>
                           <span className={`${styles.principalDelta} ${getProfitLossClassName(tradeResult.profitLoss)}`}>
                             {tradeResult.profitLoss >= 0 ? "+" : ""}
                             {currencyFormatter.format(tradeResult.profitLoss)}
                           </span>
                         </div>
                       ) : (
-                        currencyFormatter.format(position.principal)
+                        currencyFormatter.format(principalSnapshot?.startPrincipal ?? position.principal)
                       )}
                     </td>
                     <td>{currencyFormatter.format(position.riskAmount)}</td>
@@ -580,6 +608,18 @@ function RecordsPage() {
             </tbody>
           </table>
         </div>
+        {total > 0 && (
+          <div className={styles.paginationWrap}>
+            <Pagination
+              total={total}
+              current={page}
+              pageSize={pageSize}
+              pageSizeOptions={[10, 20, 50, 100]}
+              showJumper
+              onChange={(pageInfo) => handlePageChange(pageInfo.current, pageInfo.pageSize)}
+            />
+          </div>
+        )}
       </section>
     </>
   );
@@ -609,7 +649,7 @@ function buildOpenRecordPayload(form: OpenRecordForm, principal?: number): Posit
   const positionValue = toNumber(form.positionValue);
   const fundingFee = form.fundingFee ? toNumber(form.fundingFee) : 0;
 
-  if (!form.symbol.trim() || !form.notes.trim() || entryPrice <= 0 || stopLoss <= 0 || leverage <= 0 || positionValue <= 0) {
+  if (!form.symbol.trim() || !form.notes.trim() || stopLoss <= 0 || leverage <= 0 || positionValue <= 0) {
     return null;
   }
 

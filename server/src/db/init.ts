@@ -34,6 +34,31 @@ CREATE TABLE IF NOT EXISTS positions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 `;
 
+const CREATE_TRADE_REVIEWS_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS trade_reviews (
+  id VARCHAR(21) PRIMARY KEY,
+  screenshots JSON NOT NULL,
+  strategy VARCHAR(128) NOT NULL,
+  symbol VARCHAR(64) NOT NULL,
+  side ENUM('long', 'short') NOT NULL,
+  entry_mode VARCHAR(64) NOT NULL,
+  trade_date VARCHAR(10) NOT NULL,
+  timeframe VARCHAR(16) NULL,
+  entry_reason TEXT NOT NULL,
+  profit_target VARCHAR(300) NOT NULL,
+  initial_stop_loss VARCHAR(300) NOT NULL,
+  review_notes TEXT NULL,
+  profit_loss DECIMAL(20, 4) NULL,
+  risk_reward DECIMAL(10, 4) NULL,
+  market_cycle VARCHAR(64) NULL,
+  trade_type VARCHAR(64) NULL,
+  execution_confidence TINYINT NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  INDEX idx_trade_reviews_date (trade_date DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`;
+
 async function migrateFromJsonIfEmpty(): Promise<void> {
   const pool = getPool();
   const [rows] = await pool.query<mysql.RowDataPacket[]>("SELECT COUNT(*) AS count FROM positions");
@@ -124,11 +149,13 @@ export async function initDatabase(): Promise<void> {
     await bootstrap.query(CREATE_DATABASE_SQL);
     await bootstrap.query(`USE \`${dbConfig.database}\``);
     await bootstrap.query(CREATE_POSITIONS_TABLE_SQL);
+    await bootstrap.query(CREATE_TRADE_REVIEWS_TABLE_SQL);
   } finally {
     await bootstrap.end();
   }
 
   const pool = getPool();
   await pool.query(CREATE_POSITIONS_TABLE_SQL);
+  await pool.query(CREATE_TRADE_REVIEWS_TABLE_SQL);
   await migrateFromJsonIfEmpty();
 }

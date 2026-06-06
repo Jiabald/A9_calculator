@@ -369,7 +369,21 @@ export default function AiAnalyzePage() {
           <div className="form-grid-account">
             <label className="td-label">
               币种（USDT 永续）
-              <Input value={symbol} placeholder="例：BTCUSDT 或 BTC" onChange={(v: string) => setSymbol(v)} />
+              <Select
+                value={symbol}
+                placeholder="例：BTCUSDT 或 BTC"
+                options={
+                  [
+                    {label: 'BTCUSDT', value: 'BTCUSDT'},
+                    {label: 'ETHUSDT', value: 'ETHUSDT'},
+                    {label: 'SOLUSDT', value: 'SOLUSDT'},
+                    {label: 'BNBUSDT', value: 'BNBUSDT'},
+                    {label: 'XAUUSDT', value: 'XAUUSDT'},
+
+                  ]
+                }
+                onChange={(v: SelectValue) => setSymbol(String(v))}
+              />
             </label>
 
             <label className="td-label">

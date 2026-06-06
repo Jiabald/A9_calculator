@@ -6,6 +6,12 @@
   overflow-x: auto;
 }
 
+.paginationWrap {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 12px 4px;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;

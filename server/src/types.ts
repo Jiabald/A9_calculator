@@ -1,6 +1,6 @@
 export type TradeSide = "long" | "short";
 
-export const DEFAULT_PRINCIPAL = 209.75;
+export const DEFAULT_PRINCIPAL = 200;
 
 export interface PositionRecord {
   id: string;

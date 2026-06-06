@@ -3,6 +3,9 @@ import AiAnalyzePage from "./pages/AiAnalyzePage/AiAnalyzePage";
 import CalculatorPage from "./pages/CalculatorPage/CalculatorPage";
 import KlinePage from "./pages/KlinePage";
 import RecordsPage from "./pages/RecordsPage/RecordsPage";
+import TradeReviewDetailPage from "./pages/TradeReview/TradeReviewDetailPage";
+import TradeReviewFormPage from "./pages/TradeReview/TradeReviewFormPage";
+import TradeReviewListPage from "./pages/TradeReview/TradeReviewListPage";
 
 function App() {
   return (
@@ -13,6 +16,9 @@ function App() {
         </NavLink>
         <NavLink to="/records" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
           仓位记录
+        </NavLink>
+        <NavLink to="/reviews" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+          交易复盘
         </NavLink>
         <NavLink to="/kline" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
           K 线查询
@@ -26,6 +32,9 @@ function App() {
         <Route path="/" element={<Navigate to="/calculator" replace />} />
         <Route path="/calculator" element={<CalculatorPage />} />
         <Route path="/records" element={<RecordsPage />} />
+        <Route path="/reviews" element={<TradeReviewListPage />} />
+        <Route path="/reviews/new" element={<TradeReviewFormPage />} />
+        <Route path="/reviews/:id" element={<TradeReviewDetailPage />} />
         <Route path="/kline" element={<KlinePage />} />
         <Route path="/ai" element={<AiAnalyzePage />} />
       </Routes>

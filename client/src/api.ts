@@ -1,4 +1,11 @@
-import type { PositionPayload, PositionRecord } from "./types";
+import type {
+  PaginatedPositionsResponse,
+  PaginatedTradeReviewsResponse,
+  PositionPayload,
+  PositionRecord,
+  TradeReviewPayload,
+  TradeReviewRecord
+} from "./types";
 
 export type AiTrend = "上涨" | "下跌" | "震荡";
 
@@ -36,9 +43,17 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function fetchPositions() {
-  const response = await fetch("/api/positions");
-  return parseResponse<PositionRecord[]>(response);
+export async function fetchPositions(params?: { page?: number; pageSize?: number }) {
+  const search = new URLSearchParams();
+  if (params?.page !== undefined) {
+    search.set("page", String(params.page));
+  }
+  if (params?.pageSize !== undefined) {
+    search.set("pageSize", String(params.pageSize));
+  }
+  const query = search.toString();
+  const response = await fetch(`/api/positions${query ? `?${query}` : ""}`);
+  return parseResponse<PaginatedPositionsResponse>(response);
 }
 
 export async function fetchCurrentPrincipal() {
@@ -81,6 +96,33 @@ export async function patchPosition(id: string, payload: PatchPositionPayload) {
 export async function deletePosition(id: string) {
   const response = await fetch(`/api/positions/${id}`, { method: "DELETE" });
   return parseResponse<void>(response);
+}
+
+export async function fetchTradeReviews(params?: { page?: number; pageSize?: number }) {
+  const search = new URLSearchParams();
+  if (params?.page !== undefined) {
+    search.set("page", String(params.page));
+  }
+  if (params?.pageSize !== undefined) {
+    search.set("pageSize", String(params.pageSize));
+  }
+  const query = search.toString();
+  const response = await fetch(`/api/trade-reviews${query ? `?${query}` : ""}`);
+  return parseResponse<PaginatedTradeReviewsResponse>(response);
+}
+
+export async function fetchTradeReview(id: string) {
+  const response = await fetch(`/api/trade-reviews/${id}`);
+  return parseResponse<TradeReviewRecord>(response);
+}
+
+export async function createTradeReview(payload: TradeReviewPayload) {
+  const response = await fetch("/api/trade-reviews", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  return parseResponse<TradeReviewRecord>(response);
 }
 
 export async function analyzeCoin(payload: {

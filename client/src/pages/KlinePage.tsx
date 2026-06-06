@@ -26,6 +26,7 @@ interface DayStats {
   volume: number;
   change: number;
   changePercent: number;
+  amplitudePercent: number;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -166,7 +167,8 @@ function calcDayStats(candles: CandleData[]): DayStats {
   const volume = candles.reduce((s, c) => add(s, c.volume), 0);
   const change = sub(close, open);
   const changePercent = ratioToPercent(change, open);
-  return { open, high, low, close, volume, change, changePercent };
+  const amplitudePercent = ratioToPercent(sub(high, low), open);
+  return { open, high, low, close, volume, change, changePercent, amplitudePercent };
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -345,6 +347,9 @@ export default function KlinePage() {
   const periodDesc = PERIOD_OPTIONS.find((p) => p.value === period)?.desc ?? "";
   const hasFetched = candles.length > 0;
   const rangeLabel = startDate && endDate ? dateRangeLabel(startDate, endDate) : "";
+  const hoveredChange = hoveredCandle ? sub(hoveredCandle.close, hoveredCandle.open) : 0;
+  const hoveredChangePercent = hoveredCandle ? ratioToPercent(hoveredChange, hoveredCandle.open) : 0;
+  const hoveredAmplitudePercent = hoveredCandle ? ratioToPercent(sub(hoveredCandle.high, hoveredCandle.low), hoveredCandle.open) : 0;
 
   return (
     <div>
@@ -454,7 +459,12 @@ export default function KlinePage() {
                 { label: "最高", value: formatPrice(stats.high), color: "#22c55e" },
                 { label: "最低", value: formatPrice(stats.low), color: "#ef4444" },
                 { label: "收盘", value: formatPrice(stats.close), color: stats.change >= 0 ? "#22c55e" : "#ef4444" },
-                { label: "振幅", value: `${round(ratioToPercent(sub(stats.high, stats.low), stats.open), 2).toFixed(2)}%`, color: undefined },
+                {
+                  label: "涨跌",
+                  value: `${stats.change >= 0 ? "+" : ""}${formatPrice(stats.change)} (${stats.changePercent >= 0 ? "+" : ""}${round(stats.changePercent, 2).toFixed(2)}%)`,
+                  color: stats.change >= 0 ? "#22c55e" : "#ef4444",
+                },
+                { label: "振幅", value: `${round(stats.amplitudePercent, 2).toFixed(2)}%`, color: undefined },
                 { label: "成交量", value: formatVolume(stats.volume), color: undefined },
                 { label: "K线数量", value: String(candles.length), color: undefined },
               ] as const
@@ -553,6 +563,18 @@ export default function KlinePage() {
                 >
                   {formatPrice(hoveredCandle.close)}
                 </span>
+              </span>
+              <span className="kline-ohlc-item">
+                <span className="kline-ohlc-label">涨跌</span>
+                <span className={`kline-ohlc-value ${hoveredChange >= 0 ? "kline-ohlc-up" : "kline-ohlc-down"}`}>
+                  {hoveredChange >= 0 ? "+" : ""}
+                  {formatPrice(hoveredChange)} ({hoveredChangePercent >= 0 ? "+" : ""}
+                  {round(hoveredChangePercent, 2).toFixed(2)}%)
+                </span>
+              </span>
+              <span className="kline-ohlc-item">
+                <span className="kline-ohlc-label">振幅</span>
+                <span className="kline-ohlc-value">{round(hoveredAmplitudePercent, 2).toFixed(2)}%</span>
               </span>
               {hoveredCandle.volume > 0 && (
                 <span className="kline-ohlc-item">
