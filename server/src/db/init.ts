@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS positions (
   funding_fee DECIMAL(20, 8) NOT NULL DEFAULT 0,
   close_price DECIMAL(20, 8) NULL,
   notes TEXT NULL,
+  review_id VARCHAR(21) NULL,
   trade_date VARCHAR(10) NOT NULL,
   created_at DATETIME(3) NOT NULL,
   updated_at DATETIME(3) NOT NULL,
@@ -136,6 +137,22 @@ function toMysqlDatetime(iso: string): string {
   return iso.replace("T", " ").replace("Z", "");
 }
 
+async function migratePositionsReviewId(): Promise<void> {
+  const pool = getPool();
+  const [rows] = await pool.query<mysql.RowDataPacket[]>(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = :database
+       AND TABLE_NAME = 'positions'
+       AND COLUMN_NAME = 'review_id'`,
+    { database: dbConfig.database }
+  );
+  if (Number(rows[0]?.count ?? 0) > 0) {
+    return;
+  }
+  await pool.query("ALTER TABLE positions ADD COLUMN review_id VARCHAR(21) NULL AFTER notes");
+}
+
 export async function initDatabase(): Promise<void> {
   const bootstrap = await mysql.createConnection({
     host: dbConfig.host,
@@ -157,5 +174,6 @@ export async function initDatabase(): Promise<void> {
   const pool = getPool();
   await pool.query(CREATE_POSITIONS_TABLE_SQL);
   await pool.query(CREATE_TRADE_REVIEWS_TABLE_SQL);
+  await migratePositionsReviewId();
   await migrateFromJsonIfEmpty();
 }

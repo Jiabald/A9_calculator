@@ -20,6 +20,7 @@ export interface PositionRecord {
   fundingFee: number;
   closePrice?: number;
   notes?: string;
+  reviewId?: string;
   tradeDate: string;
   createdAt: string;
   updatedAt: string;

@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button, Input, InputNumber, Pagination, Popup, Select, Textarea } from "tdesign-react";
 import type { InputNumberValue, SelectValue } from "tdesign-react";
 import { createPosition, deletePosition, fetchCurrentPrincipal, fetchPositions, patchPosition, updatePosition } from "../../api";
@@ -6,7 +7,6 @@ import {
   calcSidePriceDiff,
   createOpenRecordPayload,
   currencyFormatter,
-  formatLossRatioPercent,
   formatNumber,
   getTradeResult,
   toNumber
@@ -19,7 +19,7 @@ type OpenRecordForm = {
   symbol: string;
   side: TradeSide;
   entryPrice: string;
-  stopLoss: string;
+  closePrice: string;
   takeProfit: string;
   leverage: string;
   positionValue: string;
@@ -27,6 +27,7 @@ type OpenRecordForm = {
   closeFeeRate: string;
   fundingFee: string;
   notes: string;
+  reviewId: string;
 };
 
 const DIRECTION_OPTIONS = [
@@ -55,14 +56,15 @@ const initialOpenRecordForm: OpenRecordForm = {
   symbol: "BTCUSDT",
   side: "long",
   entryPrice: "",
-  stopLoss: "",
+  closePrice: "",
   takeProfit: "",
   leverage: "10",
   positionValue: "",
   openFeeRate: "0.05",
   closeFeeRate: "0.05",
   fundingFee: "",
-  notes: ""
+  notes: "",
+  reviewId: ""
 };
 
 function RecordsPage() {
@@ -75,19 +77,11 @@ function RecordsPage() {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [closeModal, setCloseModal] = useState<CloseModalState | null>(null);
+  const [isSubmittingOpenRecord, setIsSubmittingOpenRecord] = useState(false);
   const [status, setStatus] = useState("正在加载仓位记录...");
 
   const isEditMode = editingId !== null;
   const principalChainMap = useMemo(() => new Map(Object.entries(principalChain)), [principalChain]);
-
-  const stopLossError = useMemo(() => {
-    const entry = toNumber(form.entryPrice);
-    const sl = toNumber(form.stopLoss);
-    if (entry <= 0 || sl <= 0) return "";
-    if (form.side === "long" && sl > entry) return "做多止损价格不能高于入场价格";
-    if (form.side === "short" && sl < entry) return "做空止损价格不能低于入场价格";
-    return "";
-  }, [form.side, form.entryPrice, form.stopLoss]);
 
   const loadPositions = useCallback(async (targetPage = page, targetPageSize = pageSize) => {
     try {
@@ -133,14 +127,10 @@ function RecordsPage() {
     setEditingId(null);
   }
 
-  async function handleSubmitOpenRecord(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitOpenRecord() {
+    if (isSubmittingOpenRecord) return;
 
-    if (stopLossError) {
-      setStatus(stopLossError);
-      return;
-    }
-
+    setIsSubmittingOpenRecord(true);
     const existing = editingId ? positions.find((position) => position.id === editingId) : undefined;
     let openingPrincipal = existing?.principal;
     if (!editingId) {
@@ -155,7 +145,7 @@ function RecordsPage() {
     }
     const payload = buildOpenRecordPayload(form, openingPrincipal);
     if (!payload) {
-      setStatus("请填写品种、入场价、止损价、杠杆、仓位价值和入场逻辑");
+      setStatus("请填写品种、入场价、杠杆、仓位价值和入场逻辑");
       return;
     }
 
@@ -164,7 +154,8 @@ function RecordsPage() {
         await patchPosition(editingId, {
           ...payload,
           takeProfit: payload.takeProfit ?? null,
-          closePrice: existing?.closePrice ?? null,
+          closePrice: payload.closePrice ?? null,
+          reviewId: form.reviewId.trim() || null,
           tradeDate: existing?.tradeDate ?? payload.tradeDate
         });
         setStatus("开仓记录已更新");
@@ -177,7 +168,14 @@ function RecordsPage() {
       await loadPositions(editingId ? page : 1, pageSize);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : editingId ? "更新失败" : "新增失败");
+    } finally {
+      setIsSubmittingOpenRecord(false);
     }
+  }
+
+  function handleSubmitOpenRecord(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void submitOpenRecord();
   }
 
   function openCloseModal(record: PositionRecord) {
@@ -357,19 +355,17 @@ function RecordsPage() {
                   />
                 </label>
                 <label className="td-label">
-                  止损价格
+                  <FieldLabel text="平仓价格" optional />
                   <InputNumber
-                    value={asNum(form.stopLoss)}
+                    value={asNum(form.closePrice)}
                     min={0}
                     step={1}
                     decimalPlaces={6}
-                    placeholder="止损价"
+                    placeholder="平仓价"
                     theme="normal"
                     style={{ width: "100%" }}
-                    status={stopLossError ? "error" : undefined}
-                    tips={stopLossError || undefined}
                     onChange={(val: InputNumberValue) =>
-                      updateField("stopLoss", val === "" ? "" : String(val))
+                      updateField("closePrice", val === "" ? "" : String(val))
                     }
                   />
                 </label>
@@ -471,8 +467,28 @@ function RecordsPage() {
                 />
               </label>
 
+              <div className={styles.modalSectionTitle}>
+                <span className="section-title-text">关联复盘</span>
+              </div>
+              <label className="td-label">
+                <FieldLabel text="复盘记录 ID" optional />
+                <Input
+                  value={form.reviewId}
+                  placeholder="选填，可在交易复盘列表复制 ID"
+                  onChange={(val: string) => updateField("reviewId", val)}
+                />
+              </label>
+
               <div className={styles.modalSubmitRow}>
-                <Button type="submit" theme="primary" size="large" block>
+                <Button
+                  type="button"
+                  theme="primary"
+                  size="large"
+                  block
+                  loading={isSubmittingOpenRecord}
+                  disabled={isSubmittingOpenRecord}
+                  onClick={() => void submitOpenRecord()}
+                >
                   {isEditMode ? "保存修改" : "新增开仓记录"}
                 </Button>
               </div>
@@ -498,16 +514,14 @@ function RecordsPage() {
                 <th>止盈</th>
                 <th>状态</th>
                 <th>平仓价格</th>
-                <th>杠杆</th>
-                <th>亏损比例</th>
                 <th>仓位价值</th>
-                <th>仓位数量</th>
+                {/* <th>仓位数量</th> */}
                 <th>本金</th>
                 <th>风险</th>
                 <th>手续费损耗</th>
                 <th>资金费</th>
                 <th>交易盈亏</th>
-                <th>入场逻辑</th>
+                {/* <th>入场逻辑</th> */}
                 <th>操作</th>
               </tr>
             </thead>
@@ -519,12 +533,19 @@ function RecordsPage() {
 
                 return (
                   <tr key={position.id}>
-                    <td>{position.tradeDate}</td>
+                    {/* 日期 */}
+                    <td>{position.tradeDate}</td> 
+                    {/* 品种 */}
                     <td>{position.symbol}</td>
+                    {/* 方向 */}
                     <td>{position.side === "long" ? "做多" : "做空"}</td>
+                    {/* 入场价格 */}
                     <td>{formatNumber(position.entryPrice)}</td>
+                    {/* 止损 */}
                     <td>{formatNumber(position.stopLoss)}</td>
+                    {/* 止盈 */}
                     <td>{position.takeProfit ? formatNumber(position.takeProfit) : "-"}</td>
+                    {/* 状态 */}
                     <td>
                       {positionStatus.className === "holding" ? (
                         <button
@@ -539,15 +560,15 @@ function RecordsPage() {
                         <span className={statusBadgeClass(positionStatus.className)}>{positionStatus.label}</span>
                       )}
                     </td>
+                    {/* 平仓价格 */}
                     <td className={styles.closePriceDisplay}>
                       {position.closePrice !== undefined ? formatNumber(position.closePrice) : (
                         <span className={styles.closePriceEmpty}>-</span>
                       )}
                     </td>
-                    <td>{position.leverage}x</td>
-                    <td>{formatLossRatioPercent(position.lossRatio)}</td>
+                    {/* 仓位价值 */}
                     <td>{currencyFormatter.format(position.positionValue)}</td>
-                    <td>{formatNumber(position.positionSize)}</td>
+                    {/* <td>{formatNumber(position.positionSize)}</td> */}
                     <td>
                       {tradeResult && principalSnapshot?.endPrincipal !== null && principalSnapshot?.endPrincipal !== undefined ? (
                         <div className={styles.principalCell}>
@@ -570,7 +591,7 @@ function RecordsPage() {
                     <td className={tradeResult ? getProfitLossClassName(tradeResult.profitLoss) : undefined}>
                       {tradeResult ? currencyFormatter.format(tradeResult.profitLoss) : "-"}
                     </td>
-                    <td className={styles.notesCell}>
+                    {/* <td className={styles.notesCell}>
                       {position.notes ? (
                         <Popup
                           content={<div className={styles.notesPopupContent}>{position.notes}</div>}
@@ -584,9 +605,14 @@ function RecordsPage() {
                       ) : (
                         "-"
                       )}
-                    </td>
+                    </td> */}
                     <td>
                       <div className={styles.actionGroup}>
+                        {position.reviewId && (
+                          <Link className="pill-button" to={`/reviews/${position.reviewId}`}>
+                            查看复盘
+                          </Link>
+                        )}
                         <button type="button" className="pill-button" onClick={() => openEditModal(position)}>
                           编辑
                         </button>
@@ -600,7 +626,7 @@ function RecordsPage() {
               })}
               {!positions.length && (
                 <tr>
-                  <td colSpan={19} className={styles.emptyCell}>
+                  <td colSpan={17} className={styles.emptyCell}>
                     还没有记录，可以先新增一条开仓记录。
                   </td>
                 </tr>
@@ -630,34 +656,35 @@ function recordToForm(record: PositionRecord): OpenRecordForm {
     symbol: record.symbol,
     side: record.side,
     entryPrice: String(record.entryPrice),
-    stopLoss: String(record.stopLoss),
+    closePrice: record.closePrice !== undefined ? String(record.closePrice) : "",
     takeProfit: record.takeProfit !== undefined ? String(record.takeProfit) : "",
     leverage: String(record.leverage),
     positionValue: String(record.positionValue),
     openFeeRate: String(record.openFeeRate),
     closeFeeRate: String(record.closeFeeRate),
     fundingFee: record.fundingFee ? String(record.fundingFee) : "",
-    notes: record.notes ?? ""
+    notes: record.notes ?? "",
+    reviewId: record.reviewId ?? ""
   };
 }
 
 function buildOpenRecordPayload(form: OpenRecordForm, principal?: number): PositionPayload | null {
   const entryPrice = toNumber(form.entryPrice);
-  const stopLoss = toNumber(form.stopLoss);
+  const closePrice = form.closePrice.trim() ? toNumber(form.closePrice) : undefined;
   const takeProfit = form.takeProfit ? toNumber(form.takeProfit) : undefined;
   const leverage = toNumber(form.leverage);
   const positionValue = toNumber(form.positionValue);
   const fundingFee = form.fundingFee ? toNumber(form.fundingFee) : 0;
 
-  if (!form.symbol.trim() || !form.notes.trim() || stopLoss <= 0 || leverage <= 0 || positionValue <= 0) {
+  if (!form.symbol.trim() || !form.notes.trim() || entryPrice <= 0 || leverage <= 0 || positionValue <= 0) {
     return null;
   }
 
-  return createOpenRecordPayload({
+  const payload = createOpenRecordPayload({
     symbol: form.symbol,
     side: form.side,
     entryPrice,
-    stopLoss,
+    stopLoss: entryPrice,
     takeProfit,
     leverage,
     positionValue,
@@ -667,6 +694,12 @@ function buildOpenRecordPayload(form: OpenRecordForm, principal?: number): Posit
     fundingFee,
     notes: form.notes
   });
+
+  return {
+    ...payload,
+    closePrice,
+    reviewId: form.reviewId.trim() || undefined
+  };
 }
 
 function toPayload(record: PositionRecord, closePrice: number | undefined): PositionPayload {
@@ -687,6 +720,7 @@ function toPayload(record: PositionRecord, closePrice: number | undefined): Posi
     fundingFee: record.fundingFee,
     closePrice,
     notes: record.notes,
+    reviewId: record.reviewId,
     tradeDate: record.tradeDate
   };
 }

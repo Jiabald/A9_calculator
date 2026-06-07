@@ -21,6 +21,7 @@ interface PositionRow extends RowDataPacket {
   funding_fee: string;
   close_price: string | null;
   notes: string | null;
+  review_id: string | null;
   trade_date: string;
   created_at: Date;
   updated_at: Date;
@@ -52,6 +53,7 @@ function rowToRecord(row: PositionRow): PositionRecord {
     fundingFee: Number(row.funding_fee) || 0,
     closePrice: toNumber(row.close_price),
     notes: row.notes ?? "",
+    reviewId: row.review_id ?? undefined,
     tradeDate: row.trade_date,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString()
@@ -77,6 +79,7 @@ function recordToParams(record: PositionRecord | (PositionInput & { id: string; 
     fundingFee: record.fundingFee,
     closePrice: record.closePrice ?? null,
     notes: record.notes ?? null,
+    reviewId: record.reviewId ?? null,
     tradeDate: record.tradeDate,
     createdAt: record.createdAt.replace("T", " ").replace("Z", ""),
     updatedAt: record.updatedAt.replace("T", " ").replace("Z", "")
@@ -87,7 +90,7 @@ const SELECT_COLUMNS = `
   id, symbol, side, entry_price, stop_loss, take_profit, leverage,
   position_size, position_value, risk_amount, loss_ratio,
   open_fee_rate, close_fee_rate, principal, funding_fee, close_price,
-  notes, trade_date, created_at, updated_at
+  notes, review_id, trade_date, created_at, updated_at
 `;
 
 export const positionDao = {
@@ -140,12 +143,12 @@ export const positionDao = {
         id, symbol, side, entry_price, stop_loss, take_profit, leverage,
         position_size, position_value, risk_amount, loss_ratio,
         open_fee_rate, close_fee_rate, principal, funding_fee, close_price,
-        notes, trade_date, created_at, updated_at
+        notes, review_id, trade_date, created_at, updated_at
       ) VALUES (
         :id, :symbol, :side, :entryPrice, :stopLoss, :takeProfit, :leverage,
         :positionSize, :positionValue, :riskAmount, :lossRatio,
         :openFeeRate, :closeFeeRate, :principal, :fundingFee, :closePrice,
-        :notes, :tradeDate, :createdAt, :updatedAt
+        :notes, :reviewId, :tradeDate, :createdAt, :updatedAt
       )`,
       recordToParams(record)
     );
@@ -171,6 +174,7 @@ export const positionDao = {
         funding_fee = :fundingFee,
         close_price = :closePrice,
         notes = :notes,
+        review_id = :reviewId,
         trade_date = :tradeDate,
         updated_at = :updatedAt
       WHERE id = :id`,

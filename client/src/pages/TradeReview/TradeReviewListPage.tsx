@@ -66,6 +66,7 @@ function TradeReviewListPage() {
           <table className={styles.table}>
             <thead>
               <tr>
+                <th>ID</th>
                 <th>封面</th>
                 <th>策略</th>
                 <th>标的</th>
@@ -82,6 +83,9 @@ function TradeReviewListPage() {
             <tbody>
               {items.map((item) => (
                 <tr key={item.id}>
+                  <td className={styles.idCell} title={item.id}>
+                    {item.id}
+                  </td>
                   <td className={styles.coverCell}>
                     {item.coverImage ? (
                       <img className={styles.coverThumb} src={item.coverImage} alt="" />
@@ -111,7 +115,7 @@ function TradeReviewListPage() {
               ))}
               {!items.length && (
                 <tr>
-                  <td colSpan={11} className={styles.emptyCell}>
+                  <td colSpan={12} className={styles.emptyCell}>
                     还没有复盘记录，点击右上角「记录复盘」开始记录。
                   </td>
                 </tr>

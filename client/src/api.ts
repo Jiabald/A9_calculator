@@ -79,9 +79,10 @@ export async function updatePosition(id: string, payload: PositionPayload) {
   return parseResponse<PositionRecord>(response);
 }
 
-export type PatchPositionPayload = Partial<Omit<PositionPayload, "takeProfit" | "closePrice">> & {
+export type PatchPositionPayload = Partial<Omit<PositionPayload, "takeProfit" | "closePrice" | "reviewId">> & {
   takeProfit?: number | null;
   closePrice?: number | null;
+  reviewId?: string | null;
 };
 
 export async function patchPosition(id: string, payload: PatchPositionPayload) {
@@ -119,6 +120,15 @@ export async function fetchTradeReview(id: string) {
 export async function createTradeReview(payload: TradeReviewPayload) {
   const response = await fetch("/api/trade-reviews", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  return parseResponse<TradeReviewRecord>(response);
+}
+
+export async function updateTradeReview(id: string, payload: TradeReviewPayload) {
+  const response = await fetch(`/api/trade-reviews/${id}`, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });

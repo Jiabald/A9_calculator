@@ -44,6 +44,8 @@ export function validatePositionInput(body: unknown): PositionInput {
     throw new Error("fundingFee 必须是有效数字");
   }
 
+  const reviewId = normalizeReviewId(input.reviewId);
+
   return {
     symbol: input.symbol.trim().toUpperCase(),
     side: input.side as TradeSide,
@@ -61,8 +63,19 @@ export function validatePositionInput(body: unknown): PositionInput {
     fundingFee: input.fundingFee ?? 0,
     closePrice: input.closePrice,
     notes: typeof input.notes === "string" ? input.notes.trim() : "",
+    reviewId,
     tradeDate: input.tradeDate
   };
+}
+
+function normalizeReviewId(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error("reviewId 格式无效");
+  }
+  return value.trim();
 }
 
 const NUMERIC_POSITION_FIELDS = [
@@ -84,7 +97,11 @@ export function validatePartialPositionInput(body: unknown): Partial<PositionInp
     throw new Error("请求体不能为空");
   }
 
-  const input = body as Partial<PositionInput> & { takeProfit?: number | null; closePrice?: number | null };
+  const input = body as Partial<PositionInput> & {
+    takeProfit?: number | null;
+    closePrice?: number | null;
+    reviewId?: string | null;
+  };
   const result: Partial<PositionInput> = {};
 
   if (input.symbol !== undefined) {
@@ -139,6 +156,10 @@ export function validatePartialPositionInput(body: unknown): Partial<PositionInp
       throw new Error("日期不能为空");
     }
     result.tradeDate = input.tradeDate;
+  }
+
+  if (input.reviewId !== undefined) {
+    result.reviewId = normalizeReviewId(input.reviewId);
   }
 
   return result;

@@ -156,6 +156,33 @@ export const tradeReviewDao = {
     );
   },
 
+  async update(record: TradeReviewRecord): Promise<boolean> {
+    const pool = getPool();
+    const [result] = await pool.execute<ResultSetHeader>(
+      `UPDATE trade_reviews SET
+        screenshots = :screenshots,
+        strategy = :strategy,
+        symbol = :symbol,
+        side = :side,
+        entry_mode = :entryMode,
+        trade_date = :tradeDate,
+        timeframe = :timeframe,
+        entry_reason = :entryReason,
+        profit_target = :profitTarget,
+        initial_stop_loss = :initialStopLoss,
+        review_notes = :reviewNotes,
+        profit_loss = :profitLoss,
+        risk_reward = :riskReward,
+        market_cycle = :marketCycle,
+        trade_type = :tradeType,
+        execution_confidence = :executionConfidence,
+        updated_at = :updatedAt
+      WHERE id = :id`,
+      recordToParams(record)
+    );
+    return result.affectedRows > 0;
+  },
+
   async deleteById(id: string): Promise<boolean> {
     const pool = getPool();
     const [result] = await pool.execute<ResultSetHeader>("DELETE FROM trade_reviews WHERE id = :id", { id });

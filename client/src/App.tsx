@@ -34,6 +34,7 @@ function App() {
         <Route path="/records" element={<RecordsPage />} />
         <Route path="/reviews" element={<TradeReviewListPage />} />
         <Route path="/reviews/new" element={<TradeReviewFormPage />} />
+        <Route path="/reviews/:id/edit" element={<TradeReviewFormPage />} />
         <Route path="/reviews/:id" element={<TradeReviewDetailPage />} />
         <Route path="/kline" element={<KlinePage />} />
         <Route path="/ai" element={<AiAnalyzePage />} />

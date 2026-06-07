@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button, DatePicker, Input, InputNumber, Select, Textarea } from "tdesign-react";
 import type { InputNumberValue, SelectValue } from "tdesign-react";
-import { createTradeReview, fetchCurrentPrincipal } from "../../api";
-import type { TradeReviewPayload, TradeReviewSide } from "../../types";
+import { createTradeReview, fetchCurrentPrincipal, fetchTradeReview, updateTradeReview } from "../../api";
+import type { TradeReviewPayload, TradeReviewRecord, TradeReviewSide } from "../../types";
 import CompoundProgressBar from "./CompoundProgressBar";
 import ScreenshotUpload from "./ScreenshotUpload";
 import {
@@ -60,6 +60,27 @@ function asNum(str: string): number | "" {
   return str !== "" && Number.isFinite(n) ? n : "";
 }
 
+function recordToForm(record: TradeReviewRecord): ReviewFormState {
+  return {
+    screenshots: record.screenshots,
+    strategy: record.strategy,
+    symbol: record.symbol,
+    side: record.side,
+    entryMode: record.entryMode,
+    tradeDate: record.tradeDate,
+    timeframe: record.timeframe ?? "",
+    entryReason: record.entryReason,
+    profitTarget: record.profitTarget,
+    initialStopLoss: record.initialStopLoss,
+    reviewNotes: record.reviewNotes ?? "",
+    profitLoss: record.profitLoss !== undefined ? String(record.profitLoss) : "",
+    riskReward: record.riskReward !== undefined ? String(record.riskReward) : "",
+    marketCycle: record.marketCycle ?? "",
+    tradeType: record.tradeType ?? "",
+    executionConfidence: record.executionConfidence
+  };
+}
+
 function TextareaLabel({ text, required = false, count, max }: { text: string; required?: boolean; count: number; max?: number }) {
   return (
     <div className={styles.textareaHead}>
@@ -75,8 +96,11 @@ function TextareaLabel({ text, required = false, count, max }: { text: string; r
 
 function TradeReviewFormPage() {
   const navigate = useNavigate();
+  const { id: editId } = useParams<{ id: string }>();
+  const isEditMode = Boolean(editId);
   const [form, setForm] = useState<ReviewFormState>(initialForm);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(isEditMode);
   const [submitting, setSubmitting] = useState(false);
   const [currentPrincipal, setCurrentPrincipal] = useState<number | null>(null);
   const [principalLoading, setPrincipalLoading] = useState(true);
@@ -94,6 +118,22 @@ function TradeReviewFormPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!editId) return;
+    void (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const record = await fetchTradeReview(editId);
+        setForm(recordToForm(record));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "加载失败");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [editId]);
 
   const previewPrincipal = useMemo(() => {
     if (currentPrincipal === null) return null;
@@ -151,24 +191,44 @@ function TradeReviewFormPage() {
 
     setSubmitting(true);
     try {
-      const record = await createTradeReview(payload);
-      navigate(`/reviews/${record.id}`);
+      if (isEditMode && editId) {
+        await updateTradeReview(editId, payload);
+        navigate(`/reviews/${editId}`);
+      } else {
+        const record = await createTradeReview(payload);
+        navigate(`/reviews/${record.id}`);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
+      setError(err instanceof Error ? err.message : isEditMode ? "更新失败" : "保存失败");
     } finally {
       setSubmitting(false);
     }
   }
 
+  const backTo = isEditMode && editId ? `/reviews/${editId}` : "/reviews";
+
+  if (loading) {
+    return (
+      <>
+        <Link className={styles.backLink} to={backTo}>← {isEditMode ? "返回详情" : "返回列表"}</Link>
+        <section className="panel">
+          <p className="status">正在加载复盘记录...</p>
+        </section>
+      </>
+    );
+  }
+
   return (
     <>
-      <Link className={styles.backLink} to="/reviews">← 返回列表</Link>
+      <Link className={styles.backLink} to={backTo}>← {isEditMode ? "返回详情" : "返回列表"}</Link>
 
       <section className="hero hero-compact">
         <div className="hero-text-wrap">
           <p className="eyebrow">Review</p>
-          <h1>记录交易复盘</h1>
-          <p className="hero-text">聚焦思路 + 截图 + 执行，帮助自己与团队快速复盘。</p>
+          <h1>{isEditMode ? "编辑交易复盘" : "记录交易复盘"}</h1>
+          <p className="hero-text">
+            {isEditMode ? "修改截图、思路与执行细节，保存后返回详情页。" : "聚焦思路 + 截图 + 执行，帮助自己与团队快速复盘。"}
+          </p>
         </div>
       </section>
 
@@ -364,11 +424,11 @@ function TradeReviewFormPage() {
         {error && <p className={styles.formError}>{error}</p>}
 
         <div className={styles.submitRow}>
-          <Link className="ghost-button" to="/reviews" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+          <Link className="ghost-button" to={backTo} style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
             取消
           </Link>
           <Button type="submit" theme="primary" size="large" loading={submitting}>
-            保存复盘
+            {isEditMode ? "保存修改" : "保存复盘"}
           </Button>
         </div>
       </form>

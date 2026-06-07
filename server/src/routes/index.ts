@@ -19,3 +19,4 @@ apiRouter.delete("/positions/:id", positionController.remove);
 apiRouter.get("/trade-reviews", tradeReviewController.list);
 apiRouter.get("/trade-reviews/:id", tradeReviewController.detail);
 apiRouter.post("/trade-reviews", tradeReviewController.create);
+apiRouter.put("/trade-reviews/:id", tradeReviewController.update);

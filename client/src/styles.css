@@ -638,7 +638,8 @@ textarea:not([class*="t-"]) {
   color: #fff;
 }
 
-.primary-button.hero-action {
+.primary-button.hero-action,
+.secondary-button.hero-action {
   width: auto;
 }
 

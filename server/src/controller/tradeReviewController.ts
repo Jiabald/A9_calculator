@@ -32,5 +32,14 @@ export const tradeReviewController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  async update(req: Request, res: Response, next: NextFunction) {
+    try {
+      const record = await tradeReviewService.updateReview(getIdParam(req), req.body);
+      res.json(record);
+    } catch (error) {
+      next(error);
+    }
   }
 };

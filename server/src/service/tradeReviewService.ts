@@ -53,5 +53,25 @@ export const tradeReviewService = {
     };
     await tradeReviewDao.insert(record);
     return record;
+  },
+
+  async updateReview(id: string, body: unknown): Promise<TradeReviewRecord> {
+    const existing = await tradeReviewDao.findById(id);
+    if (!existing) {
+      throw new HttpError(404, "复盘记录不存在");
+    }
+
+    const input = validateTradeReviewInput(body);
+    const record: TradeReviewRecord = {
+      id,
+      ...input,
+      createdAt: existing.createdAt,
+      updatedAt: new Date().toISOString()
+    };
+    const updated = await tradeReviewDao.update(record);
+    if (!updated) {
+      throw new HttpError(404, "复盘记录不存在");
+    }
+    return record;
   }
 };
